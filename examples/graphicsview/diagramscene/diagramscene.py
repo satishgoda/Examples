@@ -274,11 +274,10 @@ class DiagramScene(QtGui.QGraphicsScene):
             return
 
         if self.myMode == self.InsertItem:
-            item = DiagramItem(self.myItemType, self.myItemMenu, scene=self)
+            item = DiagramItem(self.myItemType, self.myItemMenu)
             item.setBrush(self.myItemColor)
             item.setPos(mouseEvent.scenePos())
             self.addItem(item)
-            self.itemInserted.emit(item)
             
             nameItem = DiagramTextItem(parent=item, scene=self)
             nameItem.setPlainText(item.name)
@@ -286,12 +285,17 @@ class DiagramScene(QtGui.QGraphicsScene):
             font.setPointSize(18)
             nameItem.setFont(font)
             
+            nameItem.setFlag(QtGui.QGraphicsItem.ItemIsMovable, False)
+            nameItem.setFlag(QtGui.QGraphicsItem.ItemIsSelectable, False)
+            
             ir = item.boundingRect()
             nir = nameItem.boundingRect()
             diff = nir.width() - ir.width()
             nameItem.setPos(diff/2, 0)
             
             item.nameItem = nameItem
+            
+            self.itemInserted.emit(item)
 
         elif self.myMode == self.InsertLine:
             self.line = QtGui.QGraphicsLineItem(QtCore.QLineF(mouseEvent.scenePos(),
