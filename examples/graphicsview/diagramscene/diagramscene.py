@@ -131,8 +131,10 @@ class DiagramTextItem(QtGui.QGraphicsTextItem):
 class DiagramItem(QtGui.QGraphicsPolygonItem):
     Step, Conditional, StartEnd, Io = range(4)
 
-    def __init__(self, diagramType, contextMenu, parent=None, scene=None):
+    def __init__(self, diagramType, contextMenu, parent=None, scene=None, name='unknown'):
         super(DiagramItem, self).__init__(parent, scene)
+
+        self.name = name
 
         self.arrows = []
 
@@ -272,11 +274,25 @@ class DiagramScene(QtGui.QGraphicsScene):
             return
 
         if self.myMode == self.InsertItem:
-            item = DiagramItem(self.myItemType, self.myItemMenu)
+            item = DiagramItem(self.myItemType, self.myItemMenu, scene=self)
             item.setBrush(self.myItemColor)
-            self.addItem(item)
             item.setPos(mouseEvent.scenePos())
+            self.addItem(item)
             self.itemInserted.emit(item)
+            
+            nameItem = DiagramTextItem(parent=item, scene=self)
+            nameItem.setPlainText(item.name)
+            font = nameItem.font()
+            font.setPointSize(18)
+            nameItem.setFont(font)
+            
+            ir = item.boundingRect()
+            nir = nameItem.boundingRect()
+            diff = nir.width() - ir.width()
+            nameItem.setPos(diff/2, 0)
+            
+            item.nameItem = nameItem
+
         elif self.myMode == self.InsertLine:
             self.line = QtGui.QGraphicsLineItem(QtCore.QLineF(mouseEvent.scenePos(),
                                         mouseEvent.scenePos()))
@@ -338,6 +354,48 @@ class DiagramScene(QtGui.QGraphicsScene):
                 return True
         return False
 
+class DiagramItemEditor(QtGui.QWidget):
+    def __init__(self, scene, parent=None):
+        super(DiagramItemEditor, self).__init__(parent)
+        self.scene = scene
+        self._setupUi()
+        self.itemNameEdit.textChanged.connect(self.onTextEdited)
+        self.scene.selectionChanged.connect(self.onSelectionChanged)
+
+    def _setupUi(self):
+        layout = QtGui.QVBoxLayout()
+        self.setLayout(layout)
+        
+        self.itemNameLabel = QtGui.QLabel("Name of the item")
+        self.itemNameEdit = QtGui.QLineEdit()
+        self.itemNameEdit.setEnabled(False)
+        
+        layout.addWidget(self.itemNameLabel)
+        layout.addWidget(self.itemNameEdit)
+        
+        layout.addStretch()
+    
+    def onTextEdited(self, text):
+        try:
+            item = self.scene.selectedItems()[0]
+            if isinstance(item, DiagramItem):
+                nitem = item.nameItem
+                nitem.setPlainText(text)
+        except IndexError:
+            pass
+
+    def onSelectionChanged(self):
+        try:
+            item = self.scene.selectedItems()[0]
+            if isinstance(item, DiagramItem):
+                nitem = item.nameItem
+                self.itemNameEdit.setText(nitem.toPlainText())
+                self.itemNameEdit.setEnabled(True)
+            elif isinstance(item, Arrow):
+                self.itemNameEdit.setEnabled(False)
+        except IndexError:
+            self.itemNameEdit.setText('')
+            self.itemNameEdit.setEnabled(False)
 
 class MainWindow(QtGui.QMainWindow):
     InsertTextButton = 10
@@ -359,8 +417,12 @@ class MainWindow(QtGui.QMainWindow):
 
         layout = QtGui.QHBoxLayout()
         layout.addWidget(self.toolBox)
+        
         self.view = QtGui.QGraphicsView(self.scene)
         layout.addWidget(self.view)
+        
+        self.itemEditor = DiagramItemEditor(self.scene, self)
+        layout.addWidget(self.itemEditor)
 
         self.widget = QtGui.QWidget()
         self.widget.setLayout(layout)
