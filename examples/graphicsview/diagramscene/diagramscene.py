@@ -131,7 +131,7 @@ class DiagramTextItem(QtGui.QGraphicsTextItem):
 class DiagramItem(QtGui.QGraphicsPolygonItem):
     Step, Conditional, StartEnd, Io = range(4)
 
-    def __init__(self, diagramType, contextMenu, parent=None, scene=None, name='unknown'):
+    def __init__(self, diagramType, parent=None, scene=None, name='unknown'):
         super(DiagramItem, self).__init__(parent, scene)
 
         self.name = name
@@ -139,7 +139,6 @@ class DiagramItem(QtGui.QGraphicsPolygonItem):
         self.arrows = []
 
         self.diagramType = diagramType
-        self.myContextMenu = contextMenu
 
         path = QtGui.QPainterPath()
         if self.diagramType == self.StartEnd:
@@ -195,9 +194,10 @@ class DiagramItem(QtGui.QGraphicsPolygonItem):
         return pixmap
 
     def contextMenuEvent(self, event):
-        self.scene().clearSelection()
+        scene = self.scene()
+        scene.clearSelection()
         self.setSelected(True)
-        self.myContextMenu.exec_(event.screenPos())
+        scene.itemMenu.exec_(event.screenPos())
 
     def itemChange(self, change, value):
         if change == QtGui.QGraphicsItem.ItemPositionChange:
@@ -219,7 +219,7 @@ class DiagramScene(QtGui.QGraphicsScene):
     def __init__(self, itemMenu, parent=None):
         super(DiagramScene, self).__init__(parent)
 
-        self.myItemMenu = itemMenu
+        self.itemMenu = itemMenu
         self.myMode = self.MoveItem
         self.myItemType = DiagramItem.Step
         self.line = None
@@ -274,7 +274,7 @@ class DiagramScene(QtGui.QGraphicsScene):
             return
 
         if self.myMode == self.InsertItem:
-            item = DiagramItem(self.myItemType, self.myItemMenu)
+            item = DiagramItem(self.myItemType)
             item.setBrush(self.myItemColor)
             item.setPos(mouseEvent.scenePos())
             self.addItem(item)
@@ -385,6 +385,7 @@ class DiagramItemEditor(QtGui.QWidget):
             if isinstance(item, DiagramItem):
                 nitem = item.nameItem
                 nitem.setPlainText(text)
+                item.name = text
         except IndexError:
             pass
 
@@ -786,7 +787,7 @@ class MainWindow(QtGui.QMainWindow):
         return widget
 
     def createCellWidget(self, text, diagramType):
-        item = DiagramItem(diagramType, self.itemMenu)
+        item = DiagramItem(diagramType)
         icon = QtGui.QIcon(item.image())
 
         button = QtGui.QToolButton()
@@ -839,16 +840,3 @@ class MainWindow(QtGui.QMainWindow):
         painter.end()
 
         return QtGui.QIcon(pixmap)
-
-
-if __name__ == '__main__':
-
-    import sys
-
-    app = QtGui.QApplication(sys.argv)
-
-    mainWindow = MainWindow()
-    mainWindow.setGeometry(100, 100, 800, 500)
-    mainWindow.show()
-
-    sys.exit(app.exec_())
