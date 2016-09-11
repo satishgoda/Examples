@@ -10,7 +10,6 @@ from PySide import QtCore, QtGui
 
 import diagramscene_rc
 
-
 class Arrow(QtGui.QGraphicsLineItem):
     def __init__(self, startItem, endItem, parent=None, scene=None):
         super(Arrow, self).__init__(parent, scene)
@@ -166,6 +165,7 @@ class DiagramItem(QtGui.QGraphicsPolygonItem):
                     QtCore.QPointF(-120, -80)])
 
         self.setPolygon(self.myPolygon)
+        
         self.setFlag(QtGui.QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QtGui.QGraphicsItem.ItemIsSelectable, True)
 
@@ -185,6 +185,10 @@ class DiagramItem(QtGui.QGraphicsPolygonItem):
         self.arrows.append(arrow)
 
     def image(self):
+        """
+        Draw the graphics scene item into a 250x250 pixmap and
+        return it to the caller!
+        """
         pixmap = QtGui.QPixmap(250, 250)
         pixmap.fill(QtCore.Qt.transparent)
         painter = QtGui.QPainter(pixmap)
@@ -269,32 +273,40 @@ class DiagramScene(QtGui.QGraphicsScene):
             self.removeItem(item)
             item.deleteLater()
 
+    def createItem(self, itemType, name='unknown', pos=(0.0, 0.0)):
+        item = DiagramItem(itemType, name=name)
+        
+        item.setBrush(self.myItemColor)
+        item.setPos(*pos)
+        
+        self.addItem(item)
+        
+        nameItem = DiagramTextItem(parent=item, scene=self)
+        nameItem.setPlainText(item.name)
+        font = nameItem.font()
+        font.setPointSize(18)
+        nameItem.setFont(font)
+        
+        nameItem.setFlag(QtGui.QGraphicsItem.ItemIsMovable, False)
+        nameItem.setFlag(QtGui.QGraphicsItem.ItemIsSelectable, False)
+        
+        ir = item.boundingRect()
+        nir = nameItem.boundingRect()
+        diff = nir.width() - ir.width()
+        nameItem.setPos(diff/2, 0)
+        
+        item.nameItem = nameItem
+        
+        return item
+
     def mousePressEvent(self, mouseEvent):
         if (mouseEvent.button() != QtCore.Qt.LeftButton):
             return
 
         if self.myMode == self.InsertItem:
-            item = DiagramItem(self.myItemType)
-            item.setBrush(self.myItemColor)
-            item.setPos(mouseEvent.scenePos())
-            self.addItem(item)
-            
-            nameItem = DiagramTextItem(parent=item, scene=self)
-            nameItem.setPlainText(item.name)
-            font = nameItem.font()
-            font.setPointSize(18)
-            nameItem.setFont(font)
-            
-            nameItem.setFlag(QtGui.QGraphicsItem.ItemIsMovable, False)
-            nameItem.setFlag(QtGui.QGraphicsItem.ItemIsSelectable, False)
-            
-            ir = item.boundingRect()
-            nir = nameItem.boundingRect()
-            diff = nir.width() - ir.width()
-            nameItem.setPos(diff/2, 0)
-            
-            item.nameItem = nameItem
-            
+            scenePos = mouseEvent.scenePos().toTuple()
+            item = self.createItem(self.myItemType, pos=scenePos)
+                        
             self.itemInserted.emit(item)
 
         elif self.myMode == self.InsertLine:
